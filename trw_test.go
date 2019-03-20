@@ -266,7 +266,7 @@ func BenchmarkExpand(b *testing.B) {
 	}
 }
 
-func Example() {
+func UsageExample() {
 	src := []byte("<p>Some    _text_zzz</p>")
 	res := prog.Do(src)
 
