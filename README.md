@@ -7,3 +7,21 @@
 Package `trw` is a wrapper around various text processing functions from the
 standard Go library to allow for functional composition of operations, also
 minimising memory allocations during text processing.
+
+Usage example:
+```Go
+func Example() {
+	src := []byte("<p>Some    _text_zzz</p>")
+	res := prog.Do(src)
+
+	fmt.Println(string(res))
+	// Output:
+	// <p>Some <b>text</b></p>
+}
+
+var prog = trw.Seq(
+	trw.Replace(trw.Regex(`[[:space:]]+`), " "),
+	trw.Delete(trw.Lit("zzz")),
+	trw.Expand(`_([[:alnum:]]+)_`, `<b>${1}</b>`),
+)
+```

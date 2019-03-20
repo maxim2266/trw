@@ -30,6 +30,7 @@ package trw
 
 import (
 	"bytes"
+	"fmt"
 	"testing"
 )
 
@@ -264,3 +265,18 @@ func BenchmarkExpand(b *testing.B) {
 		return
 	}
 }
+
+func Example() {
+	src := []byte("<p>Some    _text_zzz</p>")
+	res := prog.Do(src)
+
+	fmt.Println(string(res))
+	// Output:
+	// <p>Some <b>text</b></p>
+}
+
+var prog = Seq(
+	Replace(Regex(`[[:space:]]+`), " "),
+	Delete(Lit("zzz")),
+	Expand(`_([[:alnum:]]+)_`, `<b>${1}</b>`),
+)
