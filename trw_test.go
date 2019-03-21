@@ -266,16 +266,16 @@ func BenchmarkExpand(b *testing.B) {
 	}
 }
 
-func UsageExample() {
+func _Example() {
 	src := []byte("<p>Some    _text_zzz</p>")
-	res := prog.Do(src)
+	res := rewriter.Do(src)
 
 	fmt.Println(string(res))
 	// Output:
 	// <p>Some <b>text</b></p>
 }
 
-var prog = Seq(
+var rewriter = Seq(
 	Replace(Regex(`[[:space:]]+`), " "),
 	Delete(Lit("zzz")),
 	Expand(`_([[:alnum:]]+)_`, `<b>${1}</b>`),

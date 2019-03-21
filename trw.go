@@ -27,7 +27,7 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 /*
-Package trw is a wrapper around various text processing functions from the standard
+Package trw wraps around various text processing functions from the standard
 Go library to allow for functional composition of operations, also minimising
 memory allocations during text processing.
 */
@@ -44,7 +44,7 @@ type Rewriter func([]byte, []byte) ([]byte, []byte)
 
 // fn(dest, src) -> (result, spare)
 
-// Do applies the Rewriter to the specified byte slice.
+// Do applies the Rewriter to the specified byte slice. The source slice may be modified in-place.
 func (rw Rewriter) Do(src []byte) (result []byte) {
 	result, _ = rw(nil, src)
 	return
