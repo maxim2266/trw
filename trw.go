@@ -136,6 +136,10 @@ func Replace(match Matcher, repl string) Rewriter {
 // Expand creates a Rewriter that applies Regexp.Expand() operation to every match
 // of the given regular expression.
 func Expand(regex, subst string) Rewriter {
+	if len(regex) == 0 {
+		panic("Empty regex in trw.Expand() function")
+	}
+
 	re := regexp.MustCompile(regex)
 
 	if len(subst) == 0 {
@@ -163,7 +167,7 @@ func Expand(regex, subst string) Rewriter {
 // Lit creates a Matcher for the given string literal.
 func Lit(patt string) Matcher {
 	if len(patt) == 0 {
-		panic("Empty pattern in str.Lit() function")
+		panic("Empty pattern in trw.Lit() function")
 	}
 
 	return func(s []byte) (int, int) {
@@ -177,6 +181,10 @@ func Lit(patt string) Matcher {
 
 // Regex creates a Matcher for the given regular expression.
 func Regex(patt string) Matcher {
+	if len(patt) == 0 {
+		panic("Empty pattern in trw.Regex() function")
+	}
+
 	return mapMatcher(regexp.MustCompile(patt).FindIndex)
 }
 
