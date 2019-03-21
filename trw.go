@@ -79,24 +79,23 @@ func Seq(rewriters ...Rewriter) Rewriter {
 	}
 }
 
-// Matcher is a type of a function that, given a byte slice, returns a list of indices
-// in that slice defining the location of the first match, similar to what functions
-// like Regexp.FindIndex() or Regexp.FindSubmatchIndex() do.
-type Matcher = func([]byte) []int
+// Matcher is a type of a function that, given a byte slice, returns a pair of indices
+// in that slice defining the location of the first match, or (-1, -1) if there is no match.
+type Matcher = func([]byte) (begin, end int)
 
 // Delete creates a Rewriter that removes all the matches produced by the given Matcher.
 func Delete(match Matcher) Rewriter {
 	return func(unused, src []byte) ([]byte, []byte) {
-		m := match(src)
+		b, e := match(src)
 
-		if !matched(m) {
+		if b < 0 {
 			return src, unused
 		}
 
-		d, s := src[:m[0]], src[m[1]:]
+		d, s := src[:b], src[e:]
 
-		for m = match(s); matched(m); m = match(s) {
-			d, s = append(d, s[:m[0]]...), s[m[1]:]
+		for b, e = match(s); b >= 0; b, e = match(s) {
+			d, s = append(d, s[:b]...), s[e:]
 		}
 
 		return append(d, s...), unused
@@ -112,22 +111,22 @@ func Replace(match Matcher, repl string) Rewriter {
 
 	return func(dest, src []byte) ([]byte, []byte) {
 		// first match
-		m := match(src)
+		b, e := match(src)
 
-		if !matched(m) { // avoid copying without a match
+		if b < 0 { // avoid copying without a match
 			return src, dest
 		}
 
 		// allocate buffer if not yet
 		if dest == nil {
-			dest = make([]byte, 0, max(len(src), m[0]+len(repl)))
+			dest = make([]byte, 0, max(len(src), b+len(repl)))
 		}
 
 		// process matches
-		d, s := concat(dest, src, m, repl)
+		d, s := concat(dest, src, b, e, repl)
 
-		for m = match(s); matched(m); m = match(s) {
-			d, s = concat(d, s, m, repl)
+		for b, e = match(s); b >= 0; b, e = match(s) {
+			d, s = concat(d, s, b, e, repl)
 		}
 
 		return append(d, s...), src
@@ -140,7 +139,7 @@ func Expand(regex, subst string) Rewriter {
 	re := regexp.MustCompile(regex)
 
 	if len(subst) == 0 {
-		return Delete(re.FindIndex)
+		return Delete(mapMatcher(re.FindIndex))
 	}
 
 	return func(dest, src []byte) ([]byte, []byte) {
@@ -167,27 +166,23 @@ func Lit(patt string) Matcher {
 		panic("Empty pattern in str.Lit() function")
 	}
 
-	return func(s []byte) (res []int) {
+	return func(s []byte) (int, int) {
 		if i := bytes.Index(s, []byte(patt)); i >= 0 {
-			res = []int{i, i + len(patt)}
+			return i, i + len(patt)
 		}
 
-		return
+		return -1, -1
 	}
 }
 
-// Regex creates a Matcher from the given regular expression.
+// Regex creates a Matcher for the given regular expression.
 func Regex(patt string) Matcher {
-	return regexp.MustCompile(patt).FindIndex
+	return mapMatcher(regexp.MustCompile(patt).FindIndex)
 }
 
 // helpers
-func concat(d, s []byte, m []int, repl string) ([]byte, []byte) {
-	return append(append(d, s[:m[0]]...), repl...), s[m[1]:]
-}
-
-func matched(ind []int) bool {
-	return len(ind) >= 2
+func concat(d, s []byte, b, e int, repl string) ([]byte, []byte) {
+	return append(append(d, s[:b]...), repl...), s[e:]
 }
 
 func max(a, b int) int {
@@ -196,4 +191,14 @@ func max(a, b int) int {
 	}
 
 	return b
+}
+
+func mapMatcher(match func([]byte) []int) func([]byte) (int, int) {
+	return func(s []byte) (int, int) {
+		if m := match(s); len(m) > 1 {
+			return m[0], m[1]
+		}
+
+		return -1, -1
+	}
 }
