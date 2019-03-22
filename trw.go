@@ -184,33 +184,18 @@ func Expand(patt string, subst string, opts ...Option) Rewriter {
 	return ExpandRe(regexp.MustCompile(patt), subst, opts...)
 }
 
-// Limit is an option to limit the number of matches.
-func Limit(n int) Option {
-	return func(match Matcher) Matcher {
-		n := n
-
-		return func(s []byte) []int {
-			if n--; n < 0 {
-				return nil
-			}
-
-			return match(s)
-		}
-	}
-}
-
 // Lit creates a Matcher for the given string literal.
 func Lit(patt string) Matcher {
 	if len(patt) == 0 {
 		panic("Empty pattern in trw.Lit() function")
 	}
 
-	return func(s []byte) []int {
+	return func(s []byte) (m []int) {
 		if i := bytes.Index(s, []byte(patt)); i >= 0 {
-			return []int{i, i + len(patt)}
+			m = []int{i, i + len(patt)}
 		}
 
-		return nil
+		return
 	}
 }
 
@@ -230,6 +215,21 @@ func Re(re *regexp.Regexp) Matcher {
 	}
 
 	return re.FindIndex
+}
+
+// Limit is an option to limit the number of matches.
+func Limit(n int) Option {
+	return func(match Matcher) Matcher {
+		n := n
+
+		return func(s []byte) (m []int) {
+			if n--; n >= 0 {
+				m = match(s)
+			}
+
+			return
+		}
+	}
 }
 
 // helpers
