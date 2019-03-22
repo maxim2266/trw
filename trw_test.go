@@ -294,6 +294,33 @@ func BenchmarkExpand(b *testing.B) {
 	}
 }
 
+func TestLimitOption(t *testing.T) {
+	cases := []string{
+		"aa bb cc aa bb cc",
+		"XXX bb cc aa bb cc",
+		"XXX bb cc XXX bb cc",
+		"XXX bb cc XXX bb cc",
+	}
+
+	const src = "aa bb cc aa bb cc"
+
+	for n, exp := range cases {
+		rw := Replace(Patt("a+"), "XXX", Limit(n))
+
+		// first run
+		if res := rw.Do([]byte(src)); !bytes.Equal(res, []byte(exp)) {
+			t.Errorf("first run [%d]: Unexpected result: %q instead of %q", n, string(res), exp)
+			return
+		}
+
+		// second run
+		if res := rw.Do([]byte(src)); !bytes.Equal(res, []byte(exp)) {
+			t.Errorf("second run [%d]: Unexpected result: %q instead of %q", n, string(res), exp)
+			return
+		}
+	}
+}
+
 func _Example() {
 	src := []byte("<p>Some    _text_zzz</p>")
 	res := rewriter.Do(src)

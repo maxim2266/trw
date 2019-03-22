@@ -44,7 +44,8 @@ type Rewriter func([]byte, []byte) ([]byte, []byte)
 
 // fn(dest, src) -> (result, spare)
 
-// Do applies the Rewriter to the specified byte slice. The source slice may be modified in-place.
+// Do applies the Rewriter to the specified byte slice. The returned result may be
+// either the source slice modified in-place, or a new slice.
 func (rw Rewriter) Do(src []byte) (result []byte) {
 	result, _ = rw(nil, src)
 	return
@@ -83,9 +84,13 @@ func Seq(rewriters ...Rewriter) Rewriter {
 // in that slice defining the location of the first match, or (-1, -1) if there is no match.
 type Matcher = func([]byte) (begin, end int)
 
+// Option is a type representing a match option.
+type Option = func(Matcher) Matcher
+
 // Delete creates a Rewriter that removes all the matches produced by the given Matcher.
-func Delete(match Matcher) Rewriter {
+func Delete(match Matcher, opts ...Option) Rewriter {
 	return func(unused, src []byte) ([]byte, []byte) {
+		match := applyOptions(match, opts)
 		b, e := match(src)
 
 		if b < 0 {
@@ -104,12 +109,14 @@ func Delete(match Matcher) Rewriter {
 
 // Replace creates a rewriter that substitutes all the matches produced by the given Matcher
 // with the specified string.
-func Replace(match Matcher, repl string) Rewriter {
+func Replace(match Matcher, repl string, opts ...Option) Rewriter {
 	if len(repl) == 0 {
-		return Delete(match)
+		return Delete(match, opts...)
 	}
 
 	return func(dest, src []byte) ([]byte, []byte) {
+		match := applyOptions(match, opts)
+
 		// first match
 		b, e := match(src)
 
@@ -172,6 +179,21 @@ func Expand(patt, subst string) Rewriter {
 	return ExpandRe(regexp.MustCompile(patt), subst)
 }
 
+// Limit is an option to limit the number of matches.
+func Limit(n int) Option {
+	return func(match Matcher) Matcher {
+		n := n
+
+		return func(s []byte) (int, int) {
+			if n--; n < 0 {
+				return -1, -1
+			}
+
+			return match(s)
+		}
+	}
+}
+
 // Lit creates a Matcher for the given string literal.
 func Lit(patt string) Matcher {
 	if len(patt) == 0 {
@@ -222,4 +244,12 @@ func max(a, b int) int {
 	}
 
 	return b
+}
+
+func applyOptions(match Matcher, opts []Option) Matcher {
+	for _, opt := range opts {
+		match = opt(match)
+	}
+
+	return match
 }
