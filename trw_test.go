@@ -269,6 +269,32 @@ func TestExpandN(t *testing.T) {
 		}
 	}
 }
+func TestExpandLimitOption(t *testing.T) {
+	cases := []string{
+		"aa bb cc aa bb cc",
+		"aaX bb cc aa bb cc",
+		"aaX bb cc aaX bb cc",
+		"aaX bb cc aaX bb cc",
+	}
+
+	const src = "aa bb cc aa bb cc"
+
+	for n, exp := range cases {
+		rw := Expand("([[:space:]]*)(a+)[[:space:]]+", "${1}${2}X ", Limit(n))
+
+		// first run
+		if res := rw.Do([]byte(src)); !bytes.Equal(res, []byte(exp)) {
+			t.Errorf("first run [%d]: Unexpected result: %q instead of %q", n, string(res), exp)
+			return
+		}
+
+		// second run
+		if res := rw.Do([]byte(src)); !bytes.Equal(res, []byte(exp)) {
+			t.Errorf("second run [%d]: Unexpected result: %q instead of %q", n, string(res), exp)
+			return
+		}
+	}
+}
 
 func BenchmarkExpand(b *testing.B) {
 	src := []byte("aa bb cc dd")
