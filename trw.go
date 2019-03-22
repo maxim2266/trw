@@ -133,17 +133,15 @@ func Replace(match Matcher, repl string) Rewriter {
 	}
 }
 
-// Expand creates a Rewriter that applies Regexp.Expand() operation to every match
-// of the given regular expression.
-func Expand(regex, subst string) Rewriter {
-	if len(regex) == 0 {
-		panic("Empty regex in trw.Expand() function")
+// ExpandRe creates a Rewriter that applies Regexp.Expand() operation to every match
+// of the given regular expression object.
+func ExpandRe(re *regexp.Regexp, subst string) Rewriter {
+	if re == nil {
+		panic("Nil pattern in trw.ExpandRe() function")
 	}
 
-	re := regexp.MustCompile(regex)
-
 	if len(subst) == 0 {
-		return Delete(mapMatcher(re.FindIndex))
+		return Delete(Re(re))
 	}
 
 	return func(dest, src []byte) ([]byte, []byte) {
@@ -164,6 +162,16 @@ func Expand(regex, subst string) Rewriter {
 	}
 }
 
+// Expand creates a Rewriter that applies Regexp.Expand() operation to every match
+// of the given regular expression pattern.
+func Expand(patt, subst string) Rewriter {
+	if len(patt) == 0 {
+		panic("Empty pattern in trw.Expand() function")
+	}
+
+	return ExpandRe(regexp.MustCompile(patt), subst)
+}
+
 // Lit creates a Matcher for the given string literal.
 func Lit(patt string) Matcher {
 	if len(patt) == 0 {
@@ -179,13 +187,28 @@ func Lit(patt string) Matcher {
 	}
 }
 
-// Regex creates a Matcher for the given regular expression.
-func Regex(patt string) Matcher {
+// Patt creates a Matcher for the given regular expression pattern.
+func Patt(patt string) Matcher {
 	if len(patt) == 0 {
-		panic("Empty pattern in trw.Regex() function")
+		panic("Empty pattern in trw.Patt() function")
 	}
 
-	return mapMatcher(regexp.MustCompile(patt).FindIndex)
+	return Re(regexp.MustCompile(patt))
+}
+
+// Re creates a matcher for the given regular expression object.
+func Re(re *regexp.Regexp) Matcher {
+	if re == nil {
+		panic("Nil regexp in trw.Re() function")
+	}
+
+	return func(s []byte) (int, int) {
+		if m := re.FindIndex(s); len(m) > 1 {
+			return m[0], m[1]
+		}
+
+		return -1, -1
+	}
 }
 
 // helpers
@@ -199,14 +222,4 @@ func max(a, b int) int {
 	}
 
 	return b
-}
-
-func mapMatcher(match func([]byte) []int) func([]byte) (int, int) {
-	return func(s []byte) (int, int) {
-		if m := match(s); len(m) > 1 {
-			return m[0], m[1]
-		}
-
-		return -1, -1
-	}
 }

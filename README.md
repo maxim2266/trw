@@ -20,7 +20,7 @@ func Example() {
 }
 
 var rewriter = trw.Seq(
-	trw.Replace(trw.Regex(`[[:space:]]+`), " "),
+	trw.Replace(trw.Patt(`[[:space:]]+`), " "),
 	trw.Delete(trw.Lit("zzz")),
 	trw.Expand(`_([[:alnum:]]+)_`, `<b>${1}</b>`),
 )

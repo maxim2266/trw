@@ -164,6 +164,34 @@ func TestReplaceN(t *testing.T) {
 	}
 }
 
+func TestReplacePatt(t *testing.T) {
+	type Subst struct {
+		patt, repl string
+	}
+
+	cases := []struct {
+		src   string
+		subst []Subst
+		exp   string
+	}{
+		{"aa bb cc aa bb cc", []Subst{{"a+", "XXX"}, {"b+", "YYY"}, {"c+", "ZZZ"}}, "XXX YYY ZZZ XXX YYY ZZZ"},
+		{"aa bb cc aa bb cc", []Subst{{"a+[[:space:]]+", ""}, {"b+", "YYY"}, {"c+", "ZZZ"}}, "YYY ZZZ YYY ZZZ"},
+	}
+
+	for i, c := range cases {
+		rw := make([]Rewriter, 0, len(c.subst))
+
+		for _, s := range c.subst {
+			rw = append(rw, Replace(Patt(s.patt), s.repl))
+		}
+
+		if res := Seq(rw...).Do([]byte(c.src)); !bytes.Equal(res, []byte(c.exp)) {
+			t.Errorf("[%d] Unexpected result: %q instead of %q", i, string(res), c.exp)
+			return
+		}
+	}
+}
+
 func BenchmarkReplace(b *testing.B) {
 	src := []byte("aa bb cc dd")
 	exp := []byte("X bb cc dd")
@@ -276,7 +304,7 @@ func _Example() {
 }
 
 var rewriter = Seq(
-	Replace(Regex(`[[:space:]]+`), " "),
+	Replace(Patt(`[[:space:]]+`), " "),
 	Delete(Lit("zzz")),
 	Expand(`_([[:alnum:]]+)_`, `<b>${1}</b>`),
 )
