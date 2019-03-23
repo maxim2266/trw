@@ -11,17 +11,18 @@ memory allocations during text processing.
 #### Usage example:
 ```Go
 func Example() {
-	src := []byte("<p>Some    _text_zzz</p>")
+	src := []byte("*SomeSome*  example    _text_")
 	res := rewriter.Do(src)
 
 	fmt.Println(string(res))
 	// Output:
-	// <p>Some <b>text</b></p>
+	// <b>Some</b> example <i>text</i>
 }
 
 var rewriter = trw.Seq(
+	trw.Delete(trw.Lit("Some"), trw.Limit(1)),
 	trw.Replace(trw.Patt(`[[:space:]]+`), " "),
-	trw.Delete(trw.Lit("zzz")),
-	trw.Expand(`_([[:alnum:]]+)_`, `<b>${1}</b>`),
+	trw.Expand(`_([^_]+)_`, `<i>${1}</i>`),
+	trw.Expand(`\*([^\*]+)\*`, `<b>${1}</b>`),
 )
 ```

@@ -348,16 +348,17 @@ func TestLimitOption(t *testing.T) {
 }
 
 func _Example() {
-	src := []byte("<p>Some    _text_zzz</p>")
+	src := []byte("*SomeSome*  example    _text_")
 	res := rewriter.Do(src)
 
 	fmt.Println(string(res))
 	// Output:
-	// <p>Some <b>text</b></p>
+	// <b>Some</b> example <i>text</i>
 }
 
 var rewriter = Seq(
+	Delete(Lit("Some"), Limit(1)),
 	Replace(Patt(`[[:space:]]+`), " "),
-	Delete(Lit("zzz")),
-	Expand(`_([[:alnum:]]+)_`, `<b>${1}</b>`),
+	Expand(`_([^_]+)_`, `<i>${1}</i>`),
+	Expand(`\*([^\*]+)\*`, `<b>${1}</b>`),
 )
