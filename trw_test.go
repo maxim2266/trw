@@ -176,6 +176,7 @@ func TestReplacePatt(t *testing.T) {
 	}{
 		{"aa bb cc aa bb cc", []Subst{{"a+", "XXX"}, {"b+", "YYY"}, {"c+", "ZZZ"}}, "XXX YYY ZZZ XXX YYY ZZZ"},
 		{"aa bb cc aa bb cc", []Subst{{"a+[[:space:]]+", ""}, {"b+", "YYY"}, {"c+", "ZZZ"}}, "YYY ZZZ YYY ZZZ"},
+		{"abcabc", []Subst{{"^abc", "X"}}, "XX"}, // example of the shortcoming of the execution model
 	}
 
 	for i, c := range cases {
@@ -362,3 +363,5 @@ var rewriter = Seq(
 	Expand(`_([^_]+)_`, `<i>${1}</i>`),
 	Expand(`\*([^\*]+)\*`, `<b>${1}</b>`),
 )
+
+/* vim: set ts=4 sw=4 tw=0 noet :*/

@@ -200,6 +200,13 @@ func Lit(patt string) Matcher {
 }
 
 // Patt creates a Matcher for the given regular expression pattern.
+// CAUTION: As currently implemented, the pattern is applied repeatedly
+// to the part of the input string remaining after the previous match.
+// Consequently, all patterns attempting to match at the beginning ("^")
+// or at the end ("$") of the string are NOT going to work as expected.
+// For example, given the string "abcabc", the pattern "^abc" will match
+// twice, not just once. This particular case can be fixed by supplying
+// trw.Limit(1) option, but in general there is no simple workaround.
 func Patt(patt string) Matcher {
 	if len(patt) == 0 {
 		panic("Empty pattern in trw.Patt() function")
@@ -260,3 +267,5 @@ func applyOptions(match Matcher, opts []Option) Matcher {
 
 	return match
 }
+
+/* vim: set ts=4 sw=4 tw=0 noet :*/
