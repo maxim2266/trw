@@ -81,107 +81,112 @@ func Seq(rewriters ...Rewriter) Rewriter {
 }
 
 // Matcher is a type of a function that, given a byte slice, returns
-// a slice holding the index pairs identifying the leftmost match,
+// a slice holding the index pairs identifying all successive matches,
 // or nil if there is no match.
-type Matcher = func([]byte) []int
-
-// Option is a type representing a match option.
-type Option = func(Matcher) Matcher
+type Matcher = func([]byte) [][]int
 
 // Delete creates a Rewriter that removes all the matches produced by the given Matcher.
-func Delete(match Matcher, opts ...Option) Rewriter {
+func Delete(match Matcher) Rewriter {
 	return func(unused, src []byte) ([]byte, []byte) {
-		match := applyOptions(match, opts)
-		m := match(src)
+		ms := match(src)
 
-		if !matched(m) {
+		if len(ms) == 0 {
 			return src, unused
 		}
 
-		d, s := src[:m[0]], src[m[1]:]
+		// in-place copy, no need to allocate a new slice
+		i, j := ms[0][0], ms[0][1]
 
-		for m = match(s); matched(m); m = match(s) {
-			d, s = append(d, s[:m[0]]...), s[m[1]:]
+		for _, m := range ms[1:] {
+			i += copy(src[i:], src[j:m[0]])
+			j = m[1]
 		}
 
-		return append(d, s...), unused
+		if j < len(src) {
+			i += copy(src[i:], src[j:])
+		}
+
+		return src[:i], unused
 	}
 }
 
 // Replace creates a rewriter that substitutes all the matches produced by the given Matcher
 // with the specified string.
-func Replace(match Matcher, subst string, opts ...Option) Rewriter {
+func Replace(match Matcher, subst string) Rewriter {
 	if len(subst) == 0 {
-		return Delete(match, opts...)
+		return Delete(match)
 	}
 
 	return func(dest, src []byte) ([]byte, []byte) {
-		match := applyOptions(match, opts)
+		ms := match(src)
 
-		// first match
-		m := match(src)
+		// calculate total length of all matches
+		size := 0
 
-		if !matched(m) { // avoid copying without a match
+		for _, m := range ms {
+			size += m[1] - m[0]
+		}
+
+		// quit if no matches found
+		if size == 0 {
 			return src, dest
 		}
 
-		// allocate buffer if not yet
-		if dest == nil {
-			dest = make([]byte, 0, max(len(src), m[0]+len(subst)))
+		// reallocate destination slice if necessary
+		if size = len(src) - size + len(ms)*len(subst); size > cap(dest) {
+			dest = make([]byte, 0, size+size/5) // +20%
 		}
 
-		// process matches
-		d, s := concat(dest, src, m, subst)
+		// copy with replacement
+		i := 0
 
-		for m = match(s); matched(m); m = match(s) {
-			d, s = concat(d, s, m, subst)
+		for _, m := range ms {
+			dest = append(append(dest, src[i:m[0]]...), []byte(subst)...)
+			i = m[1]
 		}
 
-		return append(d, s...), src
-	}
-}
-
-// ExpandRe creates a Rewriter that applies Regexp.Expand() operation to every match
-// of the given regular expression object.
-func ExpandRe(re *regexp.Regexp, subst string, opts ...Option) Rewriter {
-	if len(subst) == 0 {
-		return Delete(re.FindSubmatchIndex, opts...)
-	}
-
-	return func(dest, src []byte) ([]byte, []byte) {
-		match := applyOptions(re.FindSubmatchIndex, opts)
-
-		// first match
-		m := match(src)
-
-		if !matched(m) { // avoid copying without a match
-			return src, dest
-		}
-
-		// allocate buffer if not yet
-		if dest == nil {
-			dest = make([]byte, 0, max(len(src), m[0]+len(subst)))
-		}
-
-		// apply Expand operation
-		d, s := expand(re, dest, src, m, subst)
-
-		for m = match(s); matched(m); m = match(s) {
-			d, s = expand(re, d, s, m, subst)
-		}
-
-		return append(d, s...), src
+		return append(dest, src[i:]...), src
 	}
 }
 
 // Expand creates a Rewriter that applies Regexp.Expand() operation to every match
 // of the given regular expression pattern.
-func Expand(patt string, subst string, opts ...Option) Rewriter {
+func Expand(patt, subst string) Rewriter {
 	if len(patt) == 0 {
 		panic("Empty pattern in trw.Expand() function")
 	}
 
-	return ExpandRe(regexp.MustCompile(patt), subst, opts...)
+	return ExpandRe(regexp.MustCompile(patt), subst)
+}
+
+// ExpandRe creates a Rewriter that applies Regexp.Expand() operation to every match
+// of the given regular expression object.
+func ExpandRe(re *regexp.Regexp, subst string) Rewriter {
+	if re == nil {
+		panic("Nil regular expression object in ExpandRe() function")
+	}
+
+	if len(subst) == 0 {
+		return Delete(Re(re))
+	}
+
+	return func(dest, src []byte) ([]byte, []byte) {
+		ms := re.FindAllSubmatchIndex(src, -1)
+
+		if len(ms) == 0 { // avoid copying without a match
+			return src, dest
+		}
+
+		// copy with replacement
+		i := 0
+
+		for _, m := range ms {
+			dest = re.Expand(append(dest, src[i:m[0]]...), []byte(subst), src, m)
+			i = m[1]
+		}
+
+		return append(dest, src[i:]...), src
+	}
 }
 
 // Lit creates a Matcher for the given string literal.
@@ -190,9 +195,11 @@ func Lit(patt string) Matcher {
 		panic("Empty pattern in trw.Lit() function")
 	}
 
-	return func(s []byte) (m []int) {
-		if i := bytes.Index(s, []byte(patt)); i >= 0 {
-			m = []int{i, i + len(patt)}
+	return func(s []byte) (m [][]int) {
+		for b, i := 0, bytes.Index(s, []byte(patt)); i >= 0; i = bytes.Index(s[b:], []byte(patt)) {
+			b += i
+			m = append(m, []int{b, b + len(patt)})
+			b += len(patt)
 		}
 
 		return
@@ -200,13 +207,6 @@ func Lit(patt string) Matcher {
 }
 
 // Patt creates a Matcher for the given regular expression pattern.
-// CAUTION: As currently implemented, the pattern is applied repeatedly
-// to the part of the input string remaining after the previous match.
-// Consequently, all patterns attempting to match at the beginning ("^")
-// or at the end ("$") of the string are NOT going to work as expected.
-// For example, given the string "abcabc", the pattern "^abc" will match
-// twice, not just once. This particular case can be fixed by supplying
-// trw.Limit(1) option, but in general there is no simple workaround.
 func Patt(patt string) Matcher {
 	if len(patt) == 0 {
 		panic("Empty pattern in trw.Patt() function")
@@ -221,51 +221,18 @@ func Re(re *regexp.Regexp) Matcher {
 		panic("Nil regexp in trw.Re() function")
 	}
 
-	return re.FindIndex
-}
-
-// Limit is an option to limit the number of matches.
-func Limit(n int) Option {
-	return func(match Matcher) Matcher {
-		n := n
-
-		return func(s []byte) (m []int) {
-			if n--; n >= 0 {
-				m = match(s)
-			}
-
-			return
-		}
+	return func(s []byte) [][]int {
+		return re.FindAllIndex(s, -1)
 	}
 }
 
-// helpers
-func concat(d, s []byte, m []int, subst string) ([]byte, []byte) {
-	return append(append(d, s[:m[0]]...), subst...), s[m[1]:]
-}
-
-func expand(re *regexp.Regexp, d, s []byte, m []int, subst string) ([]byte, []byte) {
-	return re.Expand(append(d, s[:m[0]]...), []byte(subst), s, m), s[m[1]:]
-}
-
-func matched(m []int) bool {
-	return len(m) >= 2
-}
-
+// helper functions
 func max(a, b int) int {
 	if a > b {
 		return a
 	}
 
 	return b
-}
-
-func applyOptions(match Matcher, opts []Option) Matcher {
-	for _, opt := range opts {
-		match = opt(match)
-	}
-
-	return match
 }
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

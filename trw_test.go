@@ -30,7 +30,6 @@ package trw
 
 import (
 	"bytes"
-	"fmt"
 	"testing"
 )
 
@@ -45,11 +44,33 @@ func TestDeleteLit1(t *testing.T) {
 		{"aa bb cc aa bb cc", "aa ", "bb cc bb cc"},
 		{"aa bb cc aa bb cc", "bb ", "aa cc aa cc"},
 		{"aa bb cc aa bb cc", " cc", "aa bb aa bb"},
-		{"missing type in composite literal", " in composite", "missing type literal"},
+		{"abcabc", "abc", ""},
 	}
 
 	for i, c := range cases {
 		if res := Delete(Lit(c.patt)).Do([]byte(c.src)); !bytes.Equal(res, []byte(c.exp)) {
+			t.Errorf("[%d] Unexpected result: %q instead of %q", i, string(res), c.exp)
+			return
+		}
+	}
+}
+
+func TestDeletePatt(t *testing.T) {
+	cases := []struct {
+		src, patt, exp string
+	}{
+		{"abc", `^a`, "bc"},
+		{"abc", `b+`, "ac"},
+		{"abc", `c$`, "ab"},
+		{"abc", "z", "abc"},
+		{"abc", "^abc$", ""},
+		{"aa bb cc aa bb cc", `^aa\s+`, "bb cc aa bb cc"},
+		{"aa bb cc aa bb cc", `bb\s+`, "aa cc aa cc"},
+		{"aa bb cc aa bb cc", `\s+cc$`, "aa bb cc aa bb"},
+	}
+
+	for i, c := range cases {
+		if res := Delete(Patt(c.patt)).Do([]byte(c.src)); !bytes.Equal(res, []byte(c.exp)) {
 			t.Errorf("[%d] Unexpected result: %q instead of %q", i, string(res), c.exp)
 			return
 		}
@@ -176,7 +197,6 @@ func TestReplacePatt(t *testing.T) {
 	}{
 		{"aa bb cc aa bb cc", []Subst{{"a+", "XXX"}, {"b+", "YYY"}, {"c+", "ZZZ"}}, "XXX YYY ZZZ XXX YYY ZZZ"},
 		{"aa bb cc aa bb cc", []Subst{{"a+[[:space:]]+", ""}, {"b+", "YYY"}, {"c+", "ZZZ"}}, "YYY ZZZ YYY ZZZ"},
-		{"abcabc", []Subst{{"^abc", "X"}}, "XX"}, // example of the shortcoming of the execution model
 	}
 
 	for i, c := range cases {
@@ -270,32 +290,6 @@ func TestExpandN(t *testing.T) {
 		}
 	}
 }
-func TestExpandLimitOption(t *testing.T) {
-	cases := []string{
-		"aa bb cc aa bb cc",
-		"aaX bb cc aa bb cc",
-		"aaX bb cc aaX bb cc",
-		"aaX bb cc aaX bb cc",
-	}
-
-	const src = "aa bb cc aa bb cc"
-
-	for n, exp := range cases {
-		rw := Expand("([[:space:]]*)(a+)[[:space:]]+", "${1}${2}X ", Limit(n))
-
-		// first run
-		if res := rw.Do([]byte(src)); !bytes.Equal(res, []byte(exp)) {
-			t.Errorf("first run [%d]: Unexpected result: %q instead of %q", n, string(res), exp)
-			return
-		}
-
-		// second run
-		if res := rw.Do([]byte(src)); !bytes.Equal(res, []byte(exp)) {
-			t.Errorf("second run [%d]: Unexpected result: %q instead of %q", n, string(res), exp)
-			return
-		}
-	}
-}
 
 func BenchmarkExpand(b *testing.B) {
 	src := []byte("aa bb cc dd")
@@ -320,48 +314,3 @@ func BenchmarkExpand(b *testing.B) {
 		return
 	}
 }
-
-func TestLimitOption(t *testing.T) {
-	cases := []string{
-		"aa bb cc aa bb cc",
-		"XXX bb cc aa bb cc",
-		"XXX bb cc XXX bb cc",
-		"XXX bb cc XXX bb cc",
-	}
-
-	const src = "aa bb cc aa bb cc"
-
-	for n, exp := range cases {
-		rw := Replace(Patt("a+"), "XXX", Limit(n))
-
-		// first run
-		if res := rw.Do([]byte(src)); !bytes.Equal(res, []byte(exp)) {
-			t.Errorf("first run [%d]: Unexpected result: %q instead of %q", n, string(res), exp)
-			return
-		}
-
-		// second run
-		if res := rw.Do([]byte(src)); !bytes.Equal(res, []byte(exp)) {
-			t.Errorf("second run [%d]: Unexpected result: %q instead of %q", n, string(res), exp)
-			return
-		}
-	}
-}
-
-func _Example() {
-	src := []byte("*SomeSome*  example    _text_")
-	res := rewriter.Do(src)
-
-	fmt.Println(string(res))
-	// Output:
-	// <b>Some</b> example <i>text</i>
-}
-
-var rewriter = Seq(
-	Delete(Lit("Some"), Limit(1)),
-	Replace(Patt(`[[:space:]]+`), " "),
-	Expand(`_([^_]+)_`, `<i>${1}</i>`),
-	Expand(`\*([^\*]+)\*`, `<b>${1}</b>`),
-)
-
-/* vim: set ts=4 sw=4 tw=0 noet :*/
