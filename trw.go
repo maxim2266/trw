@@ -122,9 +122,13 @@ func Replace(match Matcher, subst string) Rewriter {
 
 		// calculate total length of all matches
 		size := 0
+		overlap := false
 
 		for _, m := range ms {
-			size += m[1] - m[0]
+			n := m[1] - m[0]
+
+			size += n
+			overlap = overlap || n < len(subst)
 		}
 
 		// quit if no matches found
@@ -132,20 +136,39 @@ func Replace(match Matcher, subst string) Rewriter {
 			return src, dest
 		}
 
-		// reallocate destination slice if necessary
-		if size = len(src) - size + len(ms)*len(subst); size > cap(dest) {
-			dest = make([]byte, 0, size+size/5) // +20%
+		if overlap {
+			// reallocate destination slice if necessary
+			if size = len(src) - size + len(ms)*len(subst); size > cap(dest) {
+				dest = make([]byte, 0, size+size/5) // +20%
+			}
+
+			// copy with replacement
+			i := 0
+
+			for _, m := range ms {
+				dest = append(append(dest, src[i:m[0]]...), []byte(subst)...)
+				i = m[1]
+			}
+
+			return append(dest, src[i:]...), src
 		}
 
-		// copy with replacement
-		i := 0
+		// in-place copy with replacement
+		i, j := ms[0][0], ms[0][1]
 
-		for _, m := range ms {
-			dest = append(append(dest, src[i:m[0]]...), []byte(subst)...)
-			i = m[1]
+		i += copy(src[i:], subst)
+
+		for _, m := range ms[1:] {
+			i += copy(src[i:], src[j:m[0]])
+			i += copy(src[i:], subst)
+			j = m[1]
 		}
 
-		return append(dest, src[i:]...), src
+		if j < len(src) {
+			i += copy(src[i:], src[j:])
+		}
+
+		return src[:i], dest
 	}
 }
 
