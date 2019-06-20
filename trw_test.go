@@ -30,6 +30,7 @@ package trw
 
 import (
 	"bytes"
+	"fmt"
 	"testing"
 )
 
@@ -359,5 +360,22 @@ func max(a, b int) int {
 
 	return b
 }
+
+// example
+func _Example() {
+	src := []byte("*SomeSome*  example    _text_")
+	res := rewriter.Do(src)
+
+	fmt.Println(string(res))
+	// Output:
+	// <b>Some</b> example <i>text</i>
+}
+
+var rewriter = Seq(
+	Delete(LitN("Some", 1)),
+	Replace(Patt(`[[:space:]]+`), " "),
+	Expand(`_([^_]+)_`, `<i>${1}</i>`),
+	Expand(`\*([^\*]+)\*`, `<b>${1}</b>`),
+)
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

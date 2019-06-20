@@ -6,11 +6,11 @@
 
 Package `trw` wraps around various text processing functions from the standard
 Go library to allow for functional composition of operations, also minimising
-memory consumption during the processing.
+memory consumption.
 
 ### Example
 ```Go
-func Example() {
+func _Example() {
 	src := []byte("*SomeSome*  example    _text_")
 	res := rewriter.Do(src)
 
@@ -19,11 +19,11 @@ func Example() {
 	// <b>Some</b> example <i>text</i>
 }
 
-var rewriter = trw.Seq(
-	trw.Delete(trw.Lit("Some"), trw.Limit(1)),
-	trw.Replace(trw.Patt(`[[:space:]]+`), " "),
-	trw.Expand(`_([^_]+)_`, `<i>${1}</i>`),
-	trw.Expand(`\*([^\*]+)\*`, `<b>${1}</b>`),
+var rewriter = Seq(
+	Delete(LitN("Some", 1)),
+	Replace(Patt(`[[:space:]]+`), " "),
+	Expand(`_([^_]+)_`, `<i>${1}</i>`),
+	Expand(`\*([^\*]+)\*`, `<b>${1}</b>`),
 )
 ```
 
@@ -39,5 +39,4 @@ The package is most useful in situations where a number of text rewriting
 operations is to be applied sequentially to a large input byte slice. For this scenario the package provides:
 - Functional composition of the existing or user-defined operations that can later be
 applied all at once;
-- Memory optimisation guaranteeing that no more than one extra buffer of the size of the input is allocated
-while executing the whole sequence of operations.
+- Memory optimisation using only one extra buffer while executing the whole sequence of operations.

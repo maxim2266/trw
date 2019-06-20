@@ -29,7 +29,7 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /*
 Package trw wraps around various text processing functions from the standard
 Go library to allow for functional composition of operations, also minimising
-memory allocations during text processing.
+memory allocations.
 */
 package trw
 
@@ -187,6 +187,11 @@ func ExpandReN(re *regexp.Regexp, subst string, n int) Rewriter {
 
 		if len(ms) == 0 { // avoid copying without a match
 			return src, dest
+		}
+
+		// (speculatively) reallocate destination slice
+		if len(src) > cap(dest) {
+			dest = make([]byte, 0, len(src)+len(src)/5) // +20%
 		}
 
 		// copy with replacement
