@@ -156,6 +156,7 @@ func TestReplace1(t *testing.T) {
 		{"abc", "b", "Z", "aZc"},
 		{"abc", "c", "Z", "abZ"},
 		{"abc", "z", "Z", "abc"},
+		{"aa", "aa", "ZZZ", "ZZZ"},
 		{"aa bb cc aa bb cc", "aa", "ZZZ", "ZZZ bb cc ZZZ bb cc"},
 		{"aa bb cc aa bb cc", "bb", "ZZZ", "aa ZZZ cc aa ZZZ cc"},
 		{"aa bb cc aa bb cc", "cc", "ZZZ", "aa bb ZZZ aa bb ZZZ"},

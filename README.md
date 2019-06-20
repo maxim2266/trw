@@ -10,7 +10,7 @@ memory consumption.
 
 ### Example
 ```Go
-func _Example() {
+func Example() {
 	src := []byte("*SomeSome*  example    _text_")
 	res := rewriter.Do(src)
 
@@ -29,7 +29,7 @@ var rewriter = Seq(
 
 ### Installation
 
-```bash
+```sh
 go get -u github.com/maxim2266/trw
 ```
 
@@ -39,4 +39,4 @@ The package is most useful in situations where a number of text rewriting
 operations is to be applied sequentially to a large input byte slice. For this scenario the package provides:
 - Functional composition of the existing or user-defined operations that can later be
 applied all at once;
-- Memory optimisation using only one extra buffer while executing the whole sequence of operations.
+- Memory optimisation using various techniques to minimise (re)allocations.
