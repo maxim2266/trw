@@ -77,7 +77,25 @@ func TestDeletePatt(t *testing.T) {
 	}
 }
 
-func TestDeleteLitN(t *testing.T) {
+func TestDeletePattN(t *testing.T) {
+	cases := []struct {
+		src, patt, exp string
+	}{
+		{"aa bb cc aa bb cc aa bb cc", `a+\s+`, "bb cc bb cc aa bb cc"},
+		{"aa bb cc aa bb cc aa bb cc", `b+\s+`, "aa cc aa cc aa bb cc"},
+		{"aa bb cc aa bb cc aa bb cc", `c+\s+`, "aa bb aa bb aa bb cc"},
+		{"aa bb cc", `a+\s+`, "bb cc"},
+	}
+
+	for i, c := range cases {
+		if res := Delete(PattN(c.patt, 2)).Do([]byte(c.src)); !bytes.Equal(res, []byte(c.exp)) {
+			t.Errorf("[%d] Unexpected result: %q instead of %q", i, string(res), c.exp)
+			return
+		}
+	}
+}
+
+func TestDeleteLitMulti(t *testing.T) {
 	cases := []struct {
 		src  string
 		patt []string
@@ -89,7 +107,6 @@ func TestDeleteLitN(t *testing.T) {
 		{"abc", []string{"a", "z"}, "bc"},
 		{"abc", []string{"a", "b", "c"}, ""},
 		{"abc", []string{"x", "y", "z"}, "abc"},
-		{"missing type in composite literal", []string{"missing ", "composite ", "in ", "type ", "zzz"}, "literal"},
 	}
 
 	for i, c := range cases {
@@ -153,6 +170,25 @@ func TestReplace1(t *testing.T) {
 }
 
 func TestReplaceN(t *testing.T) {
+	cases := []struct {
+		src, patt, repl, exp string
+	}{
+		{"aa bb cc aa bb cc aa bb cc", "aa", "ZZZ", "ZZZ bb cc ZZZ bb cc aa bb cc"},
+		{"aa bb cc aa bb cc aa bb cc", "bb", "ZZZ", "aa ZZZ cc aa ZZZ cc aa bb cc"},
+		{"aa bb cc aa bb cc aa bb cc", "cc", "ZZZ", "aa bb ZZZ aa bb ZZZ aa bb cc"},
+		{"aa bb cc aa bb cc aa bb cc", "zz", "ZZZ", "aa bb cc aa bb cc aa bb cc"},
+		{"aa bb cc", "cc", "ZZZ", "aa bb ZZZ"},
+	}
+
+	for i, c := range cases {
+		if res := Replace(LitN(c.patt, 2), c.repl).Do([]byte(c.src)); !bytes.Equal(res, []byte(c.exp)) {
+			t.Errorf("[%d] Unexpected result: %q instead of %q", i, string(res), c.exp)
+			return
+		}
+	}
+}
+
+func TestReplaceMulti(t *testing.T) {
 	type Subst struct {
 		patt, repl string
 	}
@@ -260,7 +296,7 @@ func TestExpand1(t *testing.T) {
 	}
 }
 
-func TestExpandN(t *testing.T) {
+func TestExpandMulti(t *testing.T) {
 	type Subst struct {
 		patt, repl string
 	}
@@ -314,3 +350,14 @@ func BenchmarkExpand(b *testing.B) {
 		return
 	}
 }
+
+// helper functions
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+
+	return b
+}
+
+/* vim: set ts=4 sw=4 tw=0 noet :*/

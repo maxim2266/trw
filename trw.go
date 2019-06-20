@@ -51,7 +51,7 @@ func (rw Rewriter) Do(src []byte) (result []byte) {
 	return
 }
 
-// DoFile applies the Rewriter to the content of the specified file.
+// DoFile applies the Rewriter to the whole content of the specified file.
 func (rw Rewriter) DoFile(name string) (result []byte, err error) {
 	if result, err = ioutil.ReadFile(name); err == nil {
 		result = rw.Do(result)
@@ -152,26 +152,38 @@ func Replace(match Matcher, subst string) Rewriter {
 // Expand creates a Rewriter that applies Regexp.Expand() operation to every match
 // of the given regular expression pattern.
 func Expand(patt, subst string) Rewriter {
-	if len(patt) == 0 {
-		panic("Empty pattern in trw.Expand() function")
-	}
-
-	return ExpandRe(regexp.MustCompile(patt), subst)
+	return ExpandN(patt, subst, -1)
 }
 
-// ExpandRe creates a Rewriter that applies Regexp.Expand() operation to every match
+// ExpandN creates a Rewriter that applies Regexp.Expand() operation to the first n matches
+// of the given regular expression pattern.
+func ExpandN(patt, subst string, n int) Rewriter {
+	if len(patt) == 0 {
+		panic("empty pattern in trw.ExpandN() function")
+	}
+
+	return ExpandReN(regexp.MustCompile(patt), subst, n)
+}
+
+// ExpandRe creates a Rewriter that applies Regexp.Expand() operation to all matches
 // of the given regular expression object.
 func ExpandRe(re *regexp.Regexp, subst string) Rewriter {
+	return ExpandReN(re, subst, -1)
+}
+
+// ExpandReN creates a Rewriter that applies Regexp.Expand() operation to the first n matches
+// of the given regular expression object.
+func ExpandReN(re *regexp.Regexp, subst string, n int) Rewriter {
 	if re == nil {
-		panic("Nil regular expression object in ExpandRe() function")
+		panic("nil regular expression object in trw.ExpandReN() function")
 	}
 
 	if len(subst) == 0 {
-		return Delete(Re(re))
+		return Delete(ReN(re, n))
 	}
 
 	return func(dest, src []byte) ([]byte, []byte) {
-		ms := re.FindAllSubmatchIndex(src, -1)
+		ms := re.FindAllSubmatchIndex(src, n)
 
 		if len(ms) == 0 { // avoid copying without a match
 			return src, dest
@@ -192,14 +204,39 @@ func ExpandRe(re *regexp.Regexp, subst string) Rewriter {
 // Lit creates a Matcher for the given string literal.
 func Lit(patt string) Matcher {
 	if len(patt) == 0 {
-		panic("Empty pattern in trw.Lit() function")
+		panic("empty pattern in trw.Lit() function")
 	}
 
-	return func(s []byte) (m [][]int) {
+	return func(s []byte) (ms [][]int) {
 		for b, i := 0, bytes.Index(s, []byte(patt)); i >= 0; i = bytes.Index(s[b:], []byte(patt)) {
 			b += i
-			m = append(m, []int{b, b + len(patt)})
+			ms = append(ms, []int{b, b + len(patt)})
 			b += len(patt)
+		}
+
+		return
+	}
+}
+
+// LitN creates a Matcher for the given string literal that matches up to n times.
+func LitN(patt string, n int) Matcher {
+	if n < 0 {
+		return Lit(patt)
+	}
+
+	if len(patt) == 0 {
+		panic("empty pattern in trw.LitN() function")
+	}
+
+	return func(s []byte) (ms [][]int) {
+		for n, b := n, 0; n > 0; n-- {
+			if i := bytes.Index(s[b:], []byte(patt)); i >= 0 {
+				b += i
+				ms = append(ms, []int{b, b + len(patt)})
+				b += len(patt)
+			} else {
+				break
+			}
 		}
 
 		return
@@ -208,31 +245,32 @@ func Lit(patt string) Matcher {
 
 // Patt creates a Matcher for the given regular expression pattern.
 func Patt(patt string) Matcher {
+	return PattN(patt, -1)
+}
+
+// PattN creates a Matcher for the given regular expression pattern, matching up to n times.
+func PattN(patt string, n int) Matcher {
 	if len(patt) == 0 {
-		panic("Empty pattern in trw.Patt() function")
+		panic("empty pattern in trw.PattN() function")
 	}
 
-	return Re(regexp.MustCompile(patt))
+	return ReN(regexp.MustCompile(patt), n)
 }
 
 // Re creates a matcher for the given regular expression object.
 func Re(re *regexp.Regexp) Matcher {
+	return ReN(re, -1)
+}
+
+// ReN creates a matcher for the given regular expression object, matching up to n times.
+func ReN(re *regexp.Regexp, n int) Matcher {
 	if re == nil {
-		panic("Nil regexp in trw.Re() function")
+		panic("nil regular expression object in trw.ReN() function")
 	}
 
 	return func(s []byte) [][]int {
-		return re.FindAllIndex(s, -1)
+		return re.FindAllIndex(s, n)
 	}
-}
-
-// helper functions
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-
-	return b
 }
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/
