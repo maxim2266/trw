@@ -35,7 +35,6 @@ package trw
 
 import (
 	"bytes"
-	"io/ioutil"
 	"regexp"
 )
 
@@ -48,15 +47,6 @@ type Rewriter func([]byte, []byte) ([]byte, []byte)
 // either the source slice modified in-place, or a new slice.
 func (rw Rewriter) Do(src []byte) (result []byte) {
 	result, _ = rw(nil, src)
-	return
-}
-
-// DoFile applies the Rewriter to the whole content of the specified file.
-func (rw Rewriter) DoFile(name string) (result []byte, err error) {
-	if result, err = ioutil.ReadFile(name); err == nil {
-		result = rw.Do(result)
-	}
-
 	return
 }
 
