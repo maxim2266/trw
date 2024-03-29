@@ -290,5 +290,3 @@ func ReN(re *regexp.Regexp, n int) Matcher {
 		return re.FindAllIndex(s, n)
 	}
 }
-
-/* vim: set ts=4 sw=4 tw=0 noet :*/

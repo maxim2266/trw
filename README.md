@@ -6,32 +6,7 @@
 
 Package `trw` wraps around various text processing functions from the standard
 Go library to allow for functional composition of operations, also minimising
-memory consumption.
-
-### Example
-```Go
-func Example() {
-	src := []byte("*SomeSome*  example    _text_")
-	res := rewriter.Do(src)
-
-	fmt.Println(string(res))
-	// Output:
-	// <b>Some</b> example <i>text</i>
-}
-
-var rewriter = Seq(
-	Delete(LitN("Some", 1)),
-	Replace(Patt(`[[:space:]]+`), " "),
-	Expand(`_([^_]+)_`, `<i>${1}</i>`),
-	Expand(`\*([^\*]+)\*`, `<b>${1}</b>`),
-)
-```
-
-### Installation
-
-```sh
-go get -u github.com/maxim2266/trw
-```
+memory consumption. [Here](example_test.go) is an example of usage.
 
 ### About the package
 
